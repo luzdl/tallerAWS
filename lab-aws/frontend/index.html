@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestión de productos</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #17202a; background: #f3f6f8; }
+    body { margin: 0; padding: 2rem 1rem; }
+    main { max-width: 900px; margin: auto; }
+    h1 { margin-top: 0; }
+    form, section { background: #fff; padding: 1.25rem; border-radius: 8px; box-shadow: 0 1px 4px #0002; }
+    form { display: grid; gap: .8rem; grid-template-columns: repeat(3, 1fr) auto; align-items: end; }
+    label { display: grid; gap: .35rem; font-weight: 600; }
+    input, button { box-sizing: border-box; min-height: 2.5rem; padding: .5rem .7rem; font: inherit; }
+    button { border: 0; border-radius: 4px; color: #fff; background: #146c94; cursor: pointer; font-weight: 700; }
+    button:disabled { opacity: .6; cursor: wait; }
+    #message { min-height: 1.5rem; margin: 1rem 0; }
+    .success { color: #146c2e; } .error { color: #a32121; }
+    section { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: .7rem; border-bottom: 1px solid #dce3e8; text-align: left; white-space: nowrap; }
+    @media (max-width: 700px) { form { grid-template-columns: 1fr; } body { padding: 1rem .6rem; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Gestión de productos</h1>
+    <form id="product-form">
+      <label>Nombre <input name="nombre" maxlength="100" required></label>
+      <label>Categoría <input name="categoria" maxlength="50" required></label>
+      <label>Precio <input name="precio" type="number" min="0" step="0.01" required></label>
+      <button type="submit">Guardar</button>
+    </form>
+    <p id="message" role="status"></p>
+    <section>
+      <table>
+        <thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Fecha</th></tr></thead>
+        <tbody id="products"></tbody>
+      </table>
+    </section>
+  </main>
+  <script>
+    const form = document.querySelector('#product-form');
+    const message = document.querySelector('#message');
+    const products = document.querySelector('#products');
+
+    function showMessage(text, type) {
+      message.textContent = text;
+      message.className = type;
+    }
+
+    async function loadProducts() {
+      try {
+        const response = await fetch('/api/productos');
+        if (!response.ok) throw new Error('No se pudo cargar el listado');
+        const items = await response.json();
+        products.innerHTML = items.map(item => `<tr><td>${item.id}</td><td>${item.nombre}</td><td>${item.categoria}</td><td>${Number(item.precio).toFixed(2)}</td><td>${new Date(item.creado).toLocaleString('es-ES')}</td></tr>`).join('');
+      } catch (error) {
+        showMessage(error.message, 'error');
+      }
+    }
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const button = form.querySelector('button');
+      button.disabled = true;
+      try {
+        const data = Object.fromEntries(new FormData(form));
+        data.precio = Number(data.precio);
+        const response = await fetch('/api/productos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'No se pudo guardar el producto');
+        form.reset();
+        showMessage(`Producto guardado con ID ${result.id}`, 'success');
+        await loadProducts();
+      } catch (error) {
+        showMessage(error.message, 'error');
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    loadProducts();
+  </script>
+</body>
+</html>
