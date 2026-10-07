@@ -2,13 +2,20 @@ server {
     listen 80;
     server_name _;
 
+    # Re-resuelve el nombre del backend cada 10 s: en ECS/Fargate la IP de la
+    # tarea cambia en cada reinicio. 169.254.169.253 es el DNS de la VPC;
+    # en docker compose se usa 127.0.0.11 (DNS interno de Docker).
+    resolver ${NGINX_RESOLVER} valid=10s ipv6=off;
+    resolver_timeout 5s;
+
     location / {
         root /usr/share/nginx/html;
         index index.html;
     }
 
     location /api/ {
-        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT};
+        set $backend_upstream http://${BACKEND_HOST}:${BACKEND_PORT};
+        proxy_pass $backend_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
